@@ -1,0 +1,26 @@
+:root {
+  --brand-background: #faf8f5;
+  --brand-foreground: #1f1f1f;
+  --brand-card: #ffffff;
+  --brand-card-foreground: #1f1f1f;
+  --brand-popover: #ffffff;
+  --brand-popover-foreground: #1f1f1f;
+  --brand-primary: #002045;
+  --brand-primary-foreground: #ffffff;
+  --brand-muted: #f0ece6;
+  --brand-muted-foreground: #888888;
+  --brand-border: #d4d0c8;
+  --brand-input: #d4d0c8;
+  --brand-ring: #13696a;
+  --brand-radius-sm: 8px;
+  --brand-radius-md: 12px;
+  --brand-radius-lg: 16px;
+}
+
+@layer base {
+  body {
+    background-color: var(--brand-background);
+    color: var(--brand-foreground);
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+}

@@ -1,0 +1,130 @@
+{
+  "data": [
+    {
+      "id": "page-index",
+      "title": "教师端对话主面板",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1753957020000,
+      "canvasData": {
+        "x": 620,
+        "y": 0,
+        "group": 0,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 901,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-490b2a02",
+          "measuredAt": 1785487827208
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/index.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-students",
+      "title": "学生管理",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1753957020000,
+      "canvasData": {
+        "x": 0,
+        "y": 0,
+        "group": 0,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 901,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-b1442168",
+          "measuredAt": 1785487827208
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/students.html",
+        "interactions": [
+          {
+            "domId": "nav-chat",
+            "targetPageId": "page-index",
+            "transitionLabel": "打开对话面板"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-diagnosis",
+      "title": "障碍诊断",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1753957020000,
+      "canvasData": {
+        "x": 0,
+        "y": 377,
+        "group": 0,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1453,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-2e68d4fb",
+          "measuredAt": 1785551214502
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/diagnosis.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-parent",
+      "title": "家长中心",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1753957020000,
+      "canvasData": {
+        "x": 620,
+        "y": 377,
+        "group": 0,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1441,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-503ddccf",
+          "measuredAt": 1785551214502
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/m/parent.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-wrong",
+      "title": "学生端错题本",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1753957020000,
+      "canvasData": {
+        "x": 1240,
+        "y": 377,
+        "group": 0,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 1020,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-172a7a14",
+          "measuredAt": 1785551214502
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/m/wrong.html",
+        "interactions": []
+      }
+    }
+  ],
+  "config": {
+    "autoLayout": true,
+    "deviceType": "desktop",
+    "projectName": "ChemAI 智辅化学教师端"
+  }
+}
