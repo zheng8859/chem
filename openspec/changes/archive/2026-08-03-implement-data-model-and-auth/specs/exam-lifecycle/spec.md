@@ -1,0 +1,73 @@
+## Purpose
+
+Defines the two-layer exam lifecycle: reusable ExamPaper templates with scoring and ExamRecord execution instances with independent state machines.
+
+## ADDED Requirements
+
+### Requirement: ExamPaper as reusable template
+
+The system SHALL model exam papers as reusable templates containing an ordered, scored set of questions, owned by a teacher.
+
+#### Scenario: Teacher creates exam paper
+- **WHEN** a teacher creates a paper "高一期中化学模拟卷" with 20 questions and a total score of 100
+- **THEN** the system SHALL create an ExamPaper with status=draft, containing 20 question associations each with a score value
+
+#### Scenario: Same paper used for multiple classes
+- **WHEN** a teacher assigns the same published ExamPaper to 高一(1)班 and 高一(3)班
+- **THEN** the system SHALL create two separate ExamRecord instances, each referencing the same ExamPaper
+
+#### Scenario: Paper scoring sums to total
+- **WHEN** a teacher sets per-question scores on an ExamPaper
+- **THEN** the sum of all question scores SHALL equal the ExamPaper.total_score
+
+### Requirement: ExamPaper state machine
+
+The system SHALL manage ExamPaper through three states: draft → published → archived.
+
+#### Scenario: Draft paper is editable
+- **WHEN** an ExamPaper is in draft status
+- **THEN** the teacher SHALL be able to add, remove, reorder, or re-score questions
+
+#### Scenario: Published paper is locked
+- **WHEN** an ExamPaper transitions to published
+- **THEN** the question list and scores SHALL become immutable
+
+#### Scenario: Archived paper is hidden from active selection
+- **WHEN** an ExamPaper is archived
+- **THEN** it SHALL NOT appear in the default paper list for creating new ExamRecords
+
+### Requirement: ExamRecord lifecycle
+
+The system SHALL manage ExamRecord through the states: pending → in_progress → grading → completed → archived, with a cancelled terminal state reachable from any active state.
+
+#### Scenario: Record starts pending
+- **WHEN** an ExamRecord is created for a class with an ExamPaper
+- **THEN** it SHALL have status=pending (teacher has assigned but students haven't started)
+
+#### Scenario: Students begin the exam
+- **WHEN** the first student in the class starts answering
+- **THEN** the ExamRecord SHALL transition to in_progress
+
+#### Scenario: Exam moves to grading
+- **WHEN** the exam time expires or the teacher closes submissions
+- **THEN** the ExamRecord SHALL transition to grading
+
+#### Scenario: Teacher cancels exam
+- **WHEN** a teacher cancels an ExamRecord in pending, in_progress, or grading status
+- **THEN** the ExamRecord SHALL transition to cancelled
+
+#### Scenario: Grading completes
+- **WHEN** all student answers have been graded
+- **THEN** the ExamRecord SHALL transition to completed
+
+### Requirement: Per-question scoring on exam paper
+
+The system SHALL store the score value for each question within the paper's question association, since the same question may carry different weights on different papers.
+
+#### Scenario: Question has different scores on different papers
+- **WHEN** question #42 (a redox calculation problem) is included in a midterm paper and a final paper
+- **THEN** it SHALL be possible to assign score=5 on the midterm paper and score=10 on the final paper
+
+#### Scenario: Total score computed from question scores
+- **WHEN** a student's graded answers are totaled
+- **THEN** the system SHALL sum the per-question scores of correctly answered questions to compute the student's total score
