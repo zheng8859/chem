@@ -18,7 +18,7 @@ The system SHALL provide an endpoint for students to retrieve their notification
 
 ### Requirement: Mark notification as read
 
-The system SHALL allow a student to mark a notification as read via POST /api/v1/notifications/{id}/read.
+The system SHALL allow a student to mark a notification as read via POST /api/v1/notifications/{id}/student-read.
 
 #### Scenario: Mark notification read
 - **WHEN** a student marks a notification as read
