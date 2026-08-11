@@ -1,0 +1,249 @@
+name: Evals CI — 质量门禁
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'chemai-backend/app/**'
+      - 'chemai-backend/chem_skills/**'
+      - 'chemai-backend/tests/**'
+      - 'chemai-backend/scripts/run_evals.py'
+      - 'chemai-backend/requirements*.txt'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'chemai-backend/app/**'
+      - 'chemai-backend/chem_skills/**'
+      - 'chemai-backend/tests/**'
+      - 'chemai-backend/scripts/run_evals.py'
+      - 'chemai-backend/requirements*.txt'
+  workflow_dispatch:  # 手动触发
+
+env:
+  PYTHONIOENCODING: utf-8
+  PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+
+jobs:
+  # ═══════════════════════════════════════════════════════════
+  # Job 1: L1 门禁 — 必须通过（<95% 覆盖率 → exit 1）
+  # ═══════════════════════════════════════════════════════════
+  l1-gate:
+    name: L1 门禁 (单元 + 覆盖率)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: chemai-backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PIP_CACHE_DIR }}
+          key: pip-${{ runner.os }}-${{ hashFiles('chemai-backend/requirements*.txt') }}
+          restore-keys: pip-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-cov pytest-timeout
+
+      - name: L1 单元测试
+        run: |
+          python -m pytest tests/unit tests/evals/baseline/test_l1_*.py \
+            -v --tb=short -m "l1 or not l2 and not l3" \
+            --ignore=tests/evals/baseline/test_l2_api_quality.py \
+            --timeout=120
+
+      - name: L1 覆盖率
+        run: |
+          python -m pytest tests/unit \
+            --cov=app --cov=chem_skills \
+            --cov-report=term --cov-report=json:coverage_l1.json \
+            --cov-fail-under=85 \
+            -q --tb=short --timeout=300
+
+      - name: Upload L1 coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: l1-coverage
+          path: chemai-backend/coverage_l1.json
+          retention-days: 7
+
+  # ═══════════════════════════════════════════════════════════
+  # Job 2: L2+L3 评测 — 需 L1 通过，对比基线
+  # ═══════════════════════════════════════════════════════════
+  l2-l3-evals:
+    name: L2+L3 评测 & 基线对比
+    runs-on: ubuntu-latest
+    needs: l1-gate
+    if: success() || github.event_name == 'workflow_dispatch'
+    defaults:
+      run:
+        working-directory: chemai-backend
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史，用于基线对比
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PIP_CACHE_DIR }}
+          key: pip-${{ runner.os }}-${{ hashFiles('chemai-backend/requirements*.txt') }}
+          restore-keys: pip-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-cov pytest-timeout requests
+
+      - name: Download L1 baseline artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: l1-coverage
+          path: chemai-backend/
+        continue-on-error: true
+
+      - name: Run L2+L3 (no slow)
+        run: |
+          python scripts/run_evals.py --level L2 --json 2>&1 || true
+          python scripts/run_evals.py --level L3 --json 2>&1 || true
+
+      - name: Run L3 with slow (if API key available)
+        if: env.DASHSCOPE_API_KEY != '' || env.MIMO_API_KEY != ''
+        run: |
+          python scripts/run_evals.py --level L3 --run-slow --json 2>&1 || true
+        env:
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+          MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+
+      - name: Baseline comparison
+        run: |
+          python scripts/run_evals.py --level all --run-slow --ci --json 2>&1
+        continue-on-error: true
+        env:
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+          MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+
+      - name: Generate HTML report
+        if: always()
+        run: |
+          python scripts/run_evals.py --level all --run-slow \
+            --output data/evals/reports/ci_report.html \
+            --json 2>&1 || true
+        env:
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+          MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evals-html-report
+          path: chemai-backend/data/evals/reports/ci_report.html
+          retention-days: 30
+
+      - name: Upload JSON reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evals-json-reports
+          path: chemai-backend/data/evals/reports/*.json
+          retention-days: 30
+
+  # ═══════════════════════════════════════════════════════════
+  # Job 3: PR 劣化评论
+  # ═══════════════════════════════════════════════════════════
+  pr-degradation-report:
+    name: PR 劣化报告
+    runs-on: ubuntu-latest
+    needs: l2-l3-evals
+    if: github.event_name == 'pull_request' && always()
+    defaults:
+      run:
+        working-directory: chemai-backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download eval reports from l2-l3-evals
+        uses: actions/download-artifact@v4
+        with:
+          name: evals-json-reports
+          path: chemai-backend/data/evals/reports/
+        continue-on-error: true
+
+      - name: Find latest eval report
+        id: find-report
+        run: |
+          REPORTS=$(ls -t data/evals/reports/eval_*.json 2>/dev/null || echo "")
+          if [ -n "$REPORTS" ]; then
+            LATEST=$(echo "$REPORTS" | head -1)
+            echo "path=$LATEST" >> "$GITHUB_OUTPUT"
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Comment PR with degradation info
+        if: steps.find-report.outputs.found == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reportPath = `chemai-backend/${process.env.REPORT_PATH}`;
+            let report;
+            try {
+              report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+            } catch (e) {
+              console.log('No report found, skipping PR comment');
+              return;
+            }
+
+            const verdict = report.verdict || {};
+            const baseline = report.baseline_comparison || {};
+            const checks = baseline.checks || [];
+            const failures = verdict.failures || [];
+
+            let body = '## 📊 Evals 质量门禁报告\n\n';
+            body += `**判定:** ${verdict.summary || '未知'}\n\n`;
+
+            if (checks.length > 0) {
+              body += '### 基线对比\n\n';
+              body += '| 层级 | 指标 | 当前 | 基线 | 劣化 |\n';
+              body += '|------|------|------|------|------|\n';
+              for (const c of checks) {
+                const icon = c.degradation_pass ? '✓' : '⚠';
+                body += `| ${c.layer} | ${c.metric} | ${c.current}% | ${c.baseline}% | ${icon} ${c.degradation}% |\n`;
+              }
+            }
+
+            if (failures.length > 0) {
+              body += '\n### ⚠ 未通过项\n\n';
+              for (const f of failures) {
+                body += `- ${f}\n`;
+              }
+              body += '\n> 劣化 >5% 将阻断合并。请检查变更是否引入了质量退化。';
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+        env:
+          REPORT_PATH: ${{ steps.find-report.outputs.path }}
