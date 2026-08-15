@@ -1,0 +1,3 @@
+[submodule "chemai-backend"]
+	path = chemai-backend
+	url = https://github.com/zheng8859/chemai-backend.git
